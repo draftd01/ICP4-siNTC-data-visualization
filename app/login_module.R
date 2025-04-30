@@ -80,7 +80,7 @@ login_server <- function(id, parent_session) {
         )
       } else {
         tagList(
-          tags$h4("Welcome to Secrepedia"),
+          #tags$h6("Welcome to Secrepedia"),
           tags$p("Please login to access all features")
         )
       }

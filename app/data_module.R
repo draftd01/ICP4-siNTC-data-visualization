@@ -12,7 +12,6 @@ data_ui <- function(id) {
         heights_equal = "row",
         card(
           card_header("Available Datasets"),
-          #uiOutput(ns("search_ui")),
           uiOutput(ns("experiment_links"))
         ),
         uiOutput(ns("exp_cards_container"))
@@ -25,20 +24,6 @@ data_ui <- function(id) {
 data_server <- function(id, main_session, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
-    # generate experiment links from user_info$experiments
-    output$search_ui <- renderUI({
-      tagList(
-        textInput(ns("gene_search"), "Search Genes", 
-                  placeholder = "Enter gene names (comma-separated)"),
-        div(
-          style = "display: flex; gap: 10px;",
-          actionButton(ns("search_btn"), "Search"),
-          actionButton(ns("clear_btn"), "Clear")
-        ),
-        uiOutput(ns("search_results"))
-      )
-    })
     
     output$experiment_links <- renderUI({
       # Create ordered experiment list once to ensure consistency
@@ -74,7 +59,7 @@ data_server <- function(id, main_session, user_info) {
         div(
           style = "min-width: 200px; padding-left: 20px; border-left: 1px solid #ddd; 
                    margin-left: auto;",
-          textInput(ns("gene_search"), "Search Genes", 
+          textInput(ns("gene_search"), "Quick gene search", 
                     placeholder = "Enter gene IDs (comma-separated)"),
           div(
             style = "display: flex; gap: 10px;",
