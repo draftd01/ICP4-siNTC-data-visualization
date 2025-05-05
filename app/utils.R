@@ -82,6 +82,7 @@ show_exp_details <- with_auth(function(token, exp_id) {
 # Helper function to parse and get the molecule presence matrix
 parse_molecule_presence <- function(molecule_presence_response){
   molecule_presence_data <- httr::content(molecule_presence_response, "parsed", "application/json")
+  print("molecule_presence_data:")
   print(molecule_presence_data)
   molecule_ids  <- names(molecule_presence_data[[1]][[1]])
   exp_ids <- names(molecule_presence_data[[1]])
@@ -102,13 +103,28 @@ parse_molecule_presence <- function(molecule_presence_response){
       colnames(df)[2] <- names(molecule_presence_data[[1]])[i]
       return(df)
     })
-
+    
     # Merge all dataframes by 'id' column
     res <- Reduce(function(x, y) merge(x, y, by = "id", all = TRUE), res)
     
+    # Set proper row and column names
     rownames(res) <- res$id
-    res <- res[sort(molecule_ids), exp_ids]
-    res <- t(res)
+    res <- res[sort(molecule_ids), c('id',exp_ids)]
+    print("res after sorting:")
+    print(res)
+    res$id <- NULL
+    
+    # For single experiment case, ensure matrix structure is correct
+    if (length(exp_ids) == 1) {
+      res <- matrix(res[[1]], nrow = 1)
+      rownames(res) <- exp_ids
+      colnames(res) <- sort(molecule_ids)
+
+    } else {
+      # Clean up row names before transpose
+      res <- t(res)  # Transpose
+
+    }
   }
   print(res)
   return(res)
@@ -119,7 +135,7 @@ search_molecules <- with_auth(function(token, id_type, molecule_ids, exp_ids){
   molecule_search_url <- paste0(url_base, "search-molecules/")
   payload <- list(id_type = id_type,
                   identifiers = as.list(molecule_ids),
-                  experiment_ids = exp_ids)
+                  experiment_ids = as.list(exp_ids))
   
   if (is.null(token)){
     molecule_search_response <- httr::POST(

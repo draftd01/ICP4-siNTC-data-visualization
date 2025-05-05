@@ -30,7 +30,8 @@ data_server <- function(id, main_session, user_info) {
       print("experiments")
       #print(user_info$experiments)
       ordered_experiments <- user_info$experiments[order(sapply(user_info$experiments, function(exp) exp$id))]
-      
+      print(dim(search_results()))
+      print(length(ordered_experiments))
       div(
         style = "display: flex; align-items: start; width: 100%;",
         # Left column with experiment links
@@ -49,7 +50,7 @@ data_server <- function(id, main_session, user_info) {
           )
         ),
         # Middle column with gene grid (when present)
-        if (!is.null(search_results())) {
+        if (!is.null(search_results()) && dim(search_results())[1] == length(ordered_experiments)) {
           div(
             style = "position: sticky; left: 0;",
             createGeneGrid(ordered_experiments, search_results())
@@ -59,8 +60,8 @@ data_server <- function(id, main_session, user_info) {
         div(
           style = "min-width: 200px; padding-left: 20px; border-left: 1px solid #ddd; 
                    margin-left: auto;",
-          h5("Quick gene search"),
-          selectInput(ns("id_type"), "SelectID Type",
+          h5("Quick molecule search"),
+          selectInput(ns("id_type"), "Select ID Type",
                      choices = c(
                        "Gene Name" = "gene_name",
                        "Ensembl Gene ID" = "ensembl_gene_id",
@@ -70,11 +71,11 @@ data_server <- function(id, main_session, user_info) {
                      selected = "gene_name"
           ),
           textInput(ns("gene_search"), "IDs to search", 
-                   placeholder = "Enter gene IDs (comma-separated)"),
+                   placeholder = "Enter IDs (comma-separated)"),
           div(
             style = "display: flex; gap: 10px;",
-            actionButton(ns("search_btn"), "Search"),
-            actionButton(ns("clear_btn"), "Clear")
+            actionButton(ns("search_btn"), "Search", icon = icon("magnifying-glass")),
+            actionButton(ns("clear_btn"), "Clear", icon = icon("xmark"))
           )
         )
       )
@@ -95,6 +96,10 @@ data_server <- function(id, main_session, user_info) {
       # Use the same ordered experiments
       ordered_experiments <- user_info$experiments[order(sapply(user_info$experiments, function(exp) exp$id))]
       exp_ids_to_search <- as.character(sapply(ordered_experiments, function(exp) exp$id))
+      
+      #print(paste("exp_ids_to_search:", exp_ids_to_search))
+      print(paste("user_token NULL:", is.null(user_info$access_token)))
+      
       # Assuming presence_matrix is a data frame where:
       # - row names are experiment IDs
       # - column names are gene IDs
@@ -182,6 +187,8 @@ data_server <- function(id, main_session, user_info) {
         )
       })
     }
+
+  
     
     # Utility function to generate a card UI dynamically
     generate_exp_card <- function(exp_id, exp_title, user_info) {
