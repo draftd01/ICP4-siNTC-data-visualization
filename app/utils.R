@@ -5,7 +5,7 @@ library(dplyr)
 
 # query functions
 #url_base = "https://api.secrepedia.org/secrepediadb/"
-url_base = "https://dev-api.secrepedia.org/secrepediadb/"
+#url_base = "https://dev-api.secrepedia.org/secrepediadb/"
 
 # Authentication function
 # with_auth <- function(operation_fn) {
@@ -57,29 +57,6 @@ url_base = "https://dev-api.secrepedia.org/secrepediadb/"
 #    return(results)
 #   }
 # }
-
-# NOT NEEDED WHEN ACCESSING LOCAL FILES SINCE DESCRIPTION NOT PROVIDED
-# show_exp_details <- with_auth(function(token, exp_id) {
-#   detail_url <- paste0(url_base, "experiment/", exp_id, "/")
-#   if (is.null(token)){
-#     detail_response <- httr::GET(detail_url, config = list())
-#   }
-#   else{
-#     detail_response <- httr::GET(detail_url, httr::add_headers(Authorization = sprintf("Bearer %s", token)))
-#   }
-#   if (detail_response$status_code == 200) {
-#     details <- httr::content(detail_response, "parsed", "application/json")
-#     status <- 200
-#     out <- details$description
-#     msg <- NULL
-#   }
-#   else {
-#     status <- detail_response$status_code
-#     out <- NULL
-#     msg <- "Error fetching experiment details."
-#   }
-#   return(list(status = status, out = out, msg = msg))
-# })
 
 # Helper function to parse and get the molecule presence matrix
 # parse_molecule_presence <- function(molecule_presence_response){
@@ -134,66 +111,103 @@ url_base = "https://dev-api.secrepedia.org/secrepediadb/"
 
 # Helper function to query if a list of molecules are present in the list of experiments
 # data_files are full paths to txt files
-search_molecules <- function(id_type, filtered_genes, data_files){ #removed with_auth from function
+search_molecules <- function(id_type, filtered_genes, data_files, p_val, lfc_cutoff){ #removed with_auth from function
 
   experiment_results <- list()
+  genes_upper <- toupper(filtered_genes)
+  gene_id_icp4 <- c() #map gene name to gene ensemble id, needed for finding gene in chipseq data
+  gene_id_siNTC <- c()
   
   # Get the list of molecules you're searching for
   search_column <- ifelse(id_type == "gene_name", "gene", "gene_id")
+
+  #check for gene presence in experiment files
   for(file in data_files){
     
     df <- read.table(file, header=TRUE)
+    if(search_column == "gene"){
+      if(grepl("siNTC",file)){
+        unlabeled_genes <- setdiff(genes_upper,names(gene_id_siNTC))
+        filtered_df <- df[toupper(df[["gene"]]) %in% unlabeled_genes,]
+        gene_id_siNTC[filtered_df[["gene"]]] <- filtered_df[["gene_id"]]
+        #browser()
+      }
+      else{
+        unlabeled_genes <- setdiff(genes_upper,names(gene_id_icp4))
+        filtered_df <- df[toupper(df[["gene"]]) %in% unlabeled_genes,]
+        gene_id_icp4[filtered_df[["gene"]]] <- filtered_df[["gene_id"]]
+      }
+    }
+    else{
+      if(grepl("siNTC",file))
+        gene_id_siNTC<- union(gene_id_siNTC, setdiff(gene_id_siNTC,df[["gene_id"]]))
+      else
+        gene_id_icp4 <- union(gene_id_icp4, setdiff(gene_id_icp4,df[["gene_id"]]))
+    }
+    
     
     if(!(search_column %in% colnames(df)))
       next #skip processing this file of gene column doesn't exist
     
     # Extract experiment ID from filename (adjust this based on your naming convention)
     exp_id <- tools::file_path_sans_ext(basename(file))
-
-    # # Check presence of each searched gene in this dataset
-    # gene_presence <- list()
-    # for(gene in filtered_genes) {
-    #   if (toupper(gene) %in% toupper(df[[search_column]])){
-    #     browser()
-    #     lfc <- df[df[[search_column]]==gene & df[["SeqRun"]]=="all","log2FoldChange"]
-    #     p_adj <- df[df[[search_column]]==gene & df[["SeqRun"]]=="all","padj"][1]
-    #     browser()
-    #     if(lfc > 0 & p_adj < 0.05) #upregulated
-    #       gene_presence[[gene]] <- 1
-    #     else if(lfc < 0 & p_adj < 0.05) #downregulated
-    #       gene_presence[[gene]] <- -1
-    #     else
-    #       gene_presence[[gene]] <- 0 #ns
-    #   }
-    # }
     
     if("SeqRun" %in% colnames(df)) # only ICP4 files have SeqRun col
       df <- df[df[["SeqRun"]] == "all", ]
     
     # Filter to only genes that exist in the data
-    df <- df[toupper(df[[search_column]]) %in% toupper(filtered_genes), ]
-    missing_genes <- setdiff(toupper(filtered_genes), toupper(df[[search_column]]))
-    
+    df <- df[toupper(df[[search_column]]) %in% genes_upper, ]
+    missing_genes <- setdiff(genes_upper, toupper(df[[search_column]]))
     
     # Vectorized categorization
-    
     gene_presence <- case_when( #for SINGLE EXPERIMENT, assign gene presence category for each of filtered genes
       is.na(df$padj) ~ NA, #no p value provided, gene excluded during DESeq quality control
-      df$log2FoldChange > 0 & df$padj < 0.05 ~ 1,   # upregulated
-      df$log2FoldChange < 0 & df$padj < 0.05 ~ -1,  # downregulated
+      df$log2FoldChange > lfc_cutoff & df$padj < p_val ~ 1,   # upregulated
+      df$log2FoldChange < -lfc_cutoff & df$padj < p_val ~ -1,  # downregulated
       .default = 0  # not significant
     )
     
     # Create named vector for lookup
     names(gene_presence) <- toupper(df[[search_column]])
     gene_presence[missing_genes] <- -2 #assign values to missing genes not found in gene_presence
-    gene_presence <- gene_presence[filtered_genes] #ensure consistent order of genes after assigning missing gene values
+    gene_presence <- gene_presence[genes_upper] #ensure consistent order of genes after assigning missing gene values
     
     # Only include experiments that have at least one hit
     if(any(is.na(unlist(gene_presence))) | any(unlist(gene_presence) != -2)){ #if there is at least 1 NA, means gene was found but no p val; if -2 for all, means no gene found in any experiment, so filter out these experiments
       experiment_results[[exp_id]] <- gene_presence
     }
   }
+  
+  #check for gene presence in chipseq data
+  icp4_chipseq_data <- read.table(r"(experiments\ICP4_comparisons\logCPM_all_samples.txt)",header=TRUE)
+  siNTC_chipseq_data <- read.table(r"(experiments\siNTC_comparisons\logCPM_all_samples.txt)",header=TRUE)
+  
+  chipseq_icp4_genes <- rownames(icp4_chipseq_data)
+  chipseq_siNTC_genes <- rownames(siNTC_chipseq_data)
+
+  chipseq_presence_icp4 <- c()
+  chipseq_presence_siNTC <- c()
+
+  presence_labels_icp4 <- c()
+  if(search_column == "gene")
+    presence_labels_icp4 <-  gene_id_icp4[genes_upper] %in% chipseq_icp4_genes
+  else
+    presence_labels_icp4 <- genes_upper %in% chipseq_icp4_genes
+  
+  presence_labels_siNTC <- c()
+  if(search_column == "gene")
+    presence_labels_siNTC <- gene_id_siNTC[genes_upper] %in% chipseq_siNTC_genes
+  else
+    presence_labels_siNTC <- genes_upper %in% chipseq_siNTC_genes
+  
+  #named list, keys = gene (either name or id), vals = presence (2 if present, -2 if not, in order to match up with previous mappings)
+  chipseq_presence_icp4[genes_upper] <- presence_labels_icp4*4-2 #convert presence label to either 2 or -2
+  chipseq_presence_siNTC[genes_upper] <- presence_labels_siNTC*4-2
+  #browser() 
+  
+  experiment_results[["chipseq_ICP4"]] <- chipseq_presence_icp4
+  experiment_results[["chipseq_siNTC"]] <- chipseq_presence_siNTC
+  
   experiment_names <- names(experiment_results)
   # Clean approach using your experiment_results
   res <- NULL
@@ -205,11 +219,9 @@ search_molecules <- function(id_type, filtered_genes, data_files){ #removed with
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
-    browser()
-    rownames(res) <- res[["id"]]
     res[["id"]] <- NULL
-    #res <- res[complete.cases(res), ] #remove rows with all NA values (genes filtered during quality control)
   }
+  #browser()
   return(res) #the "out" variable of the original function, no msg or status
   #return(list(status = status, out = out, msg = msg))
 }
@@ -414,101 +426,24 @@ parse_exp_molecule <- function(exp_molecule_response, molecule_type){
 
 
 # Helper function to parse the sample-molecule value
-parse_sample_molecule_values <- function(sample_data_response, molecule_type){
-  sample_value_data <- httr::content(sample_data_response, "parsed", "application/json")
-  #print(sample_value_data[[1]])
-  data_type = NA
-  if (molecule_type == 'RNA'){
-    if (!is.null(sample_value_data[[1]]$logcpm)){
-      print('logcpm')
-      res = data.frame(id = sapply(sample_value_data, function(entry){entry$molecule$id}),
-                       dataset_id = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$data_set_id)) NA else entry$data_set_id}),
-                       logcpm = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$logcpm)) NA else entry$logcpm}))
-      data_type = 'logcpm'
-    }
-    else{
-      print('readcounts')
-      res = data.frame(id = sapply(sample_value_data, function(entry){entry$molecule$id}),
-                       dataset_id = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$data_set_id)) NA else entry$data_set_id}),
-                       read_counts = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$read_counts)) NA else entry$read_counts}))
-      data_type = 'read_counts'
-    }
-  }
-  else if (molecule_type == 'Protein'){
-    if (!is.null(sample_value_data[[1]]$raw_intensity)){
-      print('raw intensity')
-      res = data.frame(id = sapply(sample_value_data, function(entry){entry$molecule$id}),
-                       dataset_id = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$data_set_id)) NA else entry$data_set_id}),
-                       raw_intensity = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$raw_intensity)) NA else entry$raw_intensity}))
-      data_type = 'raw_intensity'
-    }
-    else{
-      print('log intensity')
-      res = data.frame(id = sapply(sample_value_data, function(entry){entry$molecule$id}),
-                       dataset_id = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$data_set_id)) NA else entry$data_set_id}),
-                       log_intensity = sapply(sample_value_data, function(entry){
-                        if(is.null(entry$log_intensity)) NA else entry$log_intensity}))
-      data_type = 'log_intensity'
-    }
-  }
-  
-  res_wide = reshape(res, 
-                   direction = "wide",
-                   idvar = "id",
-                   timevar = "dataset_id",
-                   v.names = data_type)
-  print(paste("res_wide dimensions:", paste(dim(res_wide), collapse="x")))
-  colnames(res_wide) = gsub(paste0(data_type, "."), "", colnames(res_wide))
-  return(list(res = res_wide, data_type = data_type))
-}
-
-# Helper function to get molecule values for a list of SampleDataSet ids and a list of molecule ids
-# get_exp_molecule_values <- with_auth(function(token, exp_id, molecule_type, molecule_ids){
-#   exp_molecule_data_url <- paste0(url_base, "experiment-sample-data/", exp_id, "/")
-#   # Ensure molecule_ids is always a list with at least one element
-#   molecule_ids <- as.numeric(molecule_ids)
-#   payload <- list(
-#     identifiers = I(molecule_ids)  # Use I() to prevent single element from being unboxed
-#   )
-# 
-#   if(is.null(token)){
-#     exp_molecule_data_response <- httr::POST(
-#       exp_molecule_data_url, 
-#       body = payload,
-#       encode = "json",
-#       content_type("application/json")
-#     )
-#   }
-#   else{
-#     exp_molecule_data_response <- httr::POST(
-#       exp_molecule_data_url, 
-#       body = payload,
-#       encode = "json",
-#       content_type("application/json"),
-#       httr::add_headers(Authorization = sprintf("Bearer %s", token))
-#     )
-#   }
+# get_heatmap_data <- function(file_name, genes_ids){
+#   browser()
 #   
-#   if (exp_molecule_data_response$status_code == 200) {
-#     status <- 200
-#     out <- parse_sample_molecule_values(exp_molecule_data_response, molecule_type)
-#     msg <- NULL
-#   }
+#   df <- read.table(file_name, header=TRUE)
+#   df_filtered <- df[rownames(df) %in% gene_ids]
+#   
+#   
+#   # Extract experiment ID from filename (adjust this based on your naming convention)
+#   #exp_id <- tools::file_path_sans_ext(basename(file_name))
+#   
+#   if("SeqRun" %in% colnames(df)) # only ICP4 files have SeqRun col
+#     df <- df[df[["SeqRun"]] == "all", ]
+#   
+#   # Filter to only genes that exist in the data
+#   res <- as.matrix(df[toupper(df[[search_column]]) %in% toupper(filtered_genes), ])
 # 
-#   else{
-#     status <- exp_molecule_data_response$status_code
-#     out <- NULL
-#     msg <- rawToChar(exp_molecule_data_response$content)
-#   }
-#   return(list(status = status, out = out, msg = msg))
-# })
+#   return(res)
+# }
 
 
 # Helper function to get data for secretion prediction
@@ -670,4 +605,33 @@ parse_prediction_data <- function(query_data){
 get_local_comparison_data <- function(file_path){
   df <- read.table(file_path, header = TRUE)
   return(df)
+}
+
+get_experiments <- function(){
+  user_info <- reactiveValues()
+  experiments_path <- file.path("experiments")
+  # Check if the experiments directory exists
+  if (dir.exists(experiments_path)) {
+    # Get all subdirectories in the experiments folder
+    subdirs <- list.dirs(path = experiments_path,
+                         full.names = FALSE,
+                         recursive = FALSE)
+    
+    # Filter out empty strings (the parent directory itself)
+    subdirs <- subdirs[subdirs != ""]
+    if (length(subdirs) > 0) {
+      user_info$experiments <- subdirs
+      #output$exp_message <- renderText("Experiments fetched successfully! Please go to the data tab to view experiments.")
+      #print(paste("Found experiments:", paste(subdirs, collapse = ", ")))
+    } else {
+      user_info$experiments <- NULL
+      #output$exp_message <- renderText("No experiment subdirectories found in the experiments folder.")
+      print("No experiment subdirectories found")
+    }
+  } else {
+    #browser()
+    user_info$experiments <- NULL
+    #output$exp_message <- renderText("Experiments directory not found. Please ensure the 'experiments' folder exists in your app directory.")
+    print("Experiments directory does not exist")
+  }
 }

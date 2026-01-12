@@ -73,72 +73,72 @@ login_server <- function(id, parent_session) {
     
     # Render welcome message
     #print("Right before setting up welcome message")
-    output$welcome_message <- renderUI({
-      if (user_info$is_authenticated && !is.null(user_info$username)) {
-        tags$p(
-          style = "font-size: 0.9em; margin: 0;",
-          paste("Logged in as", user_info$username)
-        )
-      } else {
-        tagList(
-          #tags$h6("Welcome to Secrepedia"),
-          tags$p("Please login to access all features")
-        )
-      }
-    })
+    # output$welcome_message <- renderUI({
+    #   if (user_info$is_authenticated && !is.null(user_info$username)) {
+    #     tags$p(
+    #       style = "font-size: 0.9em; margin: 0;",
+    #       paste("Logged in as", user_info$username)
+    #     )
+    #   } else {
+    #     tagList(
+    #       #tags$h6("Welcome to Secrepedia"),
+    #       tags$p("Please login to access all features")
+    #     )
+    #   }
+    # })
     
-    observeEvent(input$login_button, {
-      
-      # Define the API URL for Django authentication      
-      user_info$username <- input$username
-      user_info$password <- input$password
-  
-      if (is.null(user_info$username) || is.null(user_info$password)){
-        output$login_message <- renderText("Guest user, only public experiments are available.")
-        user_info$is_authenticated <- TRUE
-        user_info$access_token <- NULL
-        user_info$refresh_token <- NULL
-        # Add shorter delay and switch to data tab for guest login
-        invalidateLater(500, session)
-        observe({
-          shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
-        })
-        
-      }
-      else{
-        # Prepare the payload to be sent to Django
-        payload <- list(
-            username = user_info$username,
-            password = user_info$password)
-        # Send POST request to Django backend for login
-        response <- httr::POST(paste0(url_base, "token/"), body = payload, encode = "json")
-  
-        if (response$status_code == 200) {
-          # Parse response and store session info
-          tokens <- httr::content(response)
-          user_info$is_authenticated <- TRUE
-          user_info$access_token <- tokens$access
-          user_info$refresh_token <- tokens$refresh
-          output$login_message <- renderText("Login successful!")
-          # Add shorter delay and switch to data tab after successful login
-          invalidateLater(500, session)
-          observe({
-            shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
-          })
-        }
-        else{
-          # Feedback on login failure and switch to data tab
-          user_info$is_authenticated <- FALSE
-          output$login_message <- renderText("Login failed. Only public experiments are available.")
-          user_info$access_token <- NULL
-          user_info$refresh_token <- NULL
-          invalidateLater(500, session)
-          observe({
-            shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
-          })
-        } 
-      }
-    })
+    # observeEvent(input$login_button, {
+    #   
+    #   # Define the API URL for Django authentication      
+    #   user_info$username <- input$username
+    #   user_info$password <- input$password
+    # 
+    #   if (is.null(user_info$username) || is.null(user_info$password)){
+    #     output$login_message <- renderText("Guest user, only public experiments are available.")
+    #     user_info$is_authenticated <- TRUE
+    #     user_info$access_token <- NULL
+    #     user_info$refresh_token <- NULL
+    #     # Add shorter delay and switch to data tab for guest login
+    #     invalidateLater(500, session)
+    #     observe({
+    #       shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
+    #     })
+    #     
+    #   }
+    #   else{
+    #     # Prepare the payload to be sent to Django
+    #     payload <- list(
+    #         username = user_info$username,
+    #         password = user_info$password)
+    #     # Send POST request to Django backend for login
+    #     response <- httr::POST(paste0(url_base, "token/"), body = payload, encode = "json")
+    # 
+    #     if (response$status_code == 200) {
+    #       # Parse response and store session info
+    #       tokens <- httr::content(response)
+    #       user_info$is_authenticated <- TRUE
+    #       user_info$access_token <- tokens$access
+    #       user_info$refresh_token <- tokens$refresh
+    #       output$login_message <- renderText("Login successful!")
+    #       # Add shorter delay and switch to data tab after successful login
+    #       invalidateLater(500, session)
+    #       observe({
+    #         shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
+    #       })
+    #     }
+    #     else{
+    #       # Feedback on login failure and switch to data tab
+    #       user_info$is_authenticated <- FALSE
+    #       output$login_message <- renderText("Login failed. Only public experiments are available.")
+    #       user_info$access_token <- NULL
+    #       user_info$refresh_token <- NULL
+    #       invalidateLater(500, session)
+    #       observe({
+    #         shinyjs::runjs("document.querySelector('a[data-value=\"Data\"]').click();")
+    #       })
+    #     } 
+    #   }
+    # })
     
     observe({
       # Fetch experiments

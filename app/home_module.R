@@ -8,25 +8,20 @@ home_ui <- function(id) {
     card(
       card_header ("Summary"),
          
-      p("Under normal physiological conditions, white adipocytes efficiently store excess calories as triacylglycerol. 
-          However, obesity frequently overwhelms their capacity to do so, contributing to the pathogenesis of type 2 
-          diabetes and other metabolic diseases. Thermogenic brown and beige adipocytes, meanwhile, 
-          can convert chemical energy, such as triacylglycerol, into heat, 
-          and are associated with anti-diabetes effects in mice and humans."),
-    
-      p("In addition to their bioenergetic properties, white, brown, and beige adipocytes secrete distinct signaling molecules 
-          that maintain homeostasis by crosstalk with tissues such as the pancreas, liver, skeletal muscle, and brain. 
-          While a number of these white and brown adipocyte-derived endocrine factors have been demonstrated to have important physiological functions, 
-          adipocytes are thought to secrete over 1,000 unique polypeptides and microproteins and an even greater number of metabolites. 
-          Thus, we hypothesize that white and brown adipocytes may exert many of their effects on systemic metabolism via secreted mediators, 
-          a large number of which have yet to be characterized. 
-          To date, this vast, undefined adipocyte secretome represents a major opportunity for discovering new biology 
-          with therapeutic potential for obesity, type 2 diabetes, and metabolic diseases. 
-          However, a central obstacle in this area has been the lack of suitable technologies to quantitatively identify low abundance endocrine factors 
-          and natural small molecules in the blood and determine their cellular source and molecular targets. 
-          Using a host of newly validated cell type-selective protein labeling and affinity purification chemoproteomic approaches, 
-          we aim to generate an encyclopedia of the white and brown adipocyte secretome 
-          in mouse models and humans as a key prerequisite to elucidating the role of these mediators in normal physiology and disease."),
+      p("Successful viral infections reflect the balanced outcome of a tightly regulated program of viral gene expression and 
+        manipulation of the host cell environment to favor production of new infectious particles. The productive (lytic) replication
+        cycle of herpes simplex virus 1 (HSV-1) is dependent on the essential transcription factor ICP4 encoded by one of five 
+        immediate-early genes. At different steps in the HSV-1 temporal cascade, ICP4 either positively or negatively regulates
+        transcription of immediate-early, early, and late HSV-1 genes, including its own, through sequence-specific binding to 
+        cis-acting regulatory elements. Because of this, the direct regulatory consequences of ICP4 expression on the host 
+        transcriptome are less well understood. In this study we used doxycycline-regulated lentiviral expression vectors to 
+        inducibly express wild type and mutant ICP4 proteins in uninfected primary human fibroblasts and performed RNA-Seq to 
+        identify ICP4-driven changes to the host transcriptome. Cross-referencing our findings to a published dataset of ICP4-dependent 
+        changes to the host transcriptome in HSV-1 infected cells provided validation for a subset of differentially-expressed
+        genes regulated by ICP4. Furthermore, disrupting the ICP4 DNA binding domain was sufficient to alter the cellular gene 
+        transcriptional program responsive to ICP4. This indicates that the DNA-binding domain of ICP4, which is required for 
+        site-specific DNA binding to the virus genome, may also regulate binding to the host genome. Together these data provide
+        a comprehensive transcriptomic analysis of how wild type and mutant ICP4 expression impact cellular gene expression in uninfected cells.")
     ),
   
     card(
