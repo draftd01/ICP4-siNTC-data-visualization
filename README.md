@@ -1,1 +1,1 @@
-# Frontend for SecrepediaDB
+# Frontend for ICP4 RNASeq Data Vis

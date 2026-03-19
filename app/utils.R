@@ -180,9 +180,15 @@ search_molecules <- function(id_type, filtered_genes, data_files, p_val, lfc_cut
   } #END OF FORLOOP
   
   #check for gene presence in chipseq data
-  chipseq_data <- read.table(r"(other-experiment-data/ChipSeq_comparisons/ChipSeq_peaks_anno_final_promotor_5primeUTR_peaks_2h.txt)",header=T)#read.table(r"(experiments\ICP4_comparisons\logCPM_all_samples.txt)",header=TRUE)
+
+  #icp4_chipseq_data <- read.table(file.path("experiments","ICP4_comparisons","logCPM_all_samples.txt"), header=TRUE)
+  #siNTC_chipseq_data <- read.table(file.path("experiments","siNTC_comparisons","logCPM_all_samples.txt"), header=TRUE)
+
+  chipseq_data <- read.table(file.path("other-experiment-data","ChipSeq_comparisons","ChipSeq_peaks_anno_final_promotor_5primeUTR_peaks_2h.txt"), header=TRUE)
+  #chipseq_data <- read.table(r"(other-experiment-data/ChipSeq_comparisons/ChipSeq_peaks_anno_final_promotor_5primeUTR_peaks_2h.txt)",header=T)#read.table(r"(experiments\ICP4_comparisons\logCPM_all_samples.txt)",header=TRUE)
   #browser()
   #siNTC_chipseq_data <- read.table(r"(experiments\siNTC_comparisons\logCPM_all_samples.txt)",header=TRUE)
+
   
   chipseq_gene_ids <- toupper(chipseq_data[["geneId"]]) #ALWAYS GOING TO BE ENSEMBLE IDS
   #browser()

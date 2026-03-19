@@ -61,13 +61,13 @@ plot_ui <- function(id){
              sliderInput(ns("p_cutoff"), "-log10(P) Cutoff:", 
                          min = 0, max = 10, value = 2),
              sliderInput(ns("lfc_cutoff"), "LFC Cutoff:", 
-                         min = 0, max = 10, value = 2)#,
-             # selectInput(ns("sort_by"), "Sort Table By:", 
-             #             choices = c("Positive Log2FC", "Negative Log2FC", "P Value", "Adjusted P Value")),
-             # numericInput(ns("table_cutoff"), "Cutoff for Sorted: ",
-             #              value = 0),
-             # numericInput(ns("n_feature"), "Number of Features:", 
-             #              min = 0, max = 500, step = 1, value = 20)
+                         min = 0, max = 10, value = 2),
+             selectInput(ns("sort_by"), "Sort Table By:", 
+                         choices = c("Positive Log2FC", "Negative Log2FC", "P Value", "Adjusted P Value")),
+             numericInput(ns("table_cutoff"), "Cutoff for Sorted: ",
+                          value = 0),
+             numericInput(ns("n_feature"), "Number of Features:", 
+                          min = 0, max = 500, step = 1, value = 20)
         ),
         column(8, class = "plot-column",
            card(
@@ -87,7 +87,7 @@ plot_ui <- function(id){
     ),
     
     card(
-      card_header(h5("Normalized Mean Log Intensity")),
+      card_header(h5("All Sample Data")),
       fluidRow(
         column(4, 
                selectInput(ns("id_type"), "id Type:", choices = c(
@@ -222,7 +222,8 @@ plot_server <- function(id, experiments, file_path, gene_id_to_name){#, molecule
     plot_data <- reactive({
       res <- get_local_comparison_data(file_path)
       
-      res$log10p <- log(res$padj, base=10) * -1
+      res$log10p <- log(res$pvalue, base=10) * -1
+      res$log10q <- log(res$padj, base=10) * -1
 
       # assign color dynamically, blue for down, red for up, gray for ns
       res$category = 'ns'
@@ -319,60 +320,62 @@ plot_server <- function(id, experiments, file_path, gene_id_to_name){#, molecule
       clear_genes()
     })
 
-    # table_data <- reactive({
-    #   sort_col_dict = c("log2FC", "log2FC", "pValue", "qValue")
-    #   names(sort_col_dict) = c("Positive Log2FC", "Negative Log2FC", "P Value", "Adjusted P Value")
-    #   sort_col = sort_col_dict[input$sort_by]
-    #   #print(sort_col)
-    #   cutoff_val = input$table_cutoff
-    #   n_val = input$n_feature
-    #   
-    #   all_rows = plot_data()[,!colnames(plot_data()) %in% c('id','display_id')]
-    #   #print(colnames(comparison_data))
-    #   if (input$sort_by == "Negative Log2FC"){
-    #     table_subset = all_rows[all_rows[,sort_col] <= -cutoff_val,]
-    #     table_subset = table_subset[order(table_subset[,sort_col]),]
-    #     
-    #   }else if(input$sort_by == "Positive Log2FC"){
-    #     table_subset = all_rows[all_rows[,sort_col] >= cutoff_val,]
-    #     table_subset = table_subset[order(-table_subset[,sort_col]),]
-    #   }else{
-    #     table_subset = all_rows[all_rows[,sort_col] <= cutoff_val,]
-    #     table_subset = table_subset[order(table_subset[,sort_col]),]
-    #   }
-    #   if(dim(table_subset)[1]>=n_val){
-    #     table_subset = table_subset[0:n_val, ]
-    #   }
-    #   table_subset
-    # })
-    # 
-    # output$top_table <- renderDT({
-    #   datatable(table_data(),  
-    #             extensions = 'Buttons',  # Add buttons extension
-    #             options = list(
-    #               pageLength = 10,
-    #               dom = 'Bfrtip',  # Add 'B' for buttons
-    #               buttons = list(  # Configure download buttons
-    #                 list(
-    #                   extend = 'csv',
-    #                   filename = 'differential_analysis_results'
-    #                 ),
-    #                 list(
-    #                   extend = 'excel',
-    #                   filename = 'differential_analysis_results'
-    #                 )
-    #               ),
-    #               autoWidth = TRUE,
-    #               searchHighlight = TRUE,
-    #               initComplete = JS(
-    #                 "function(settings, json) {",
-    #                 "$(this.api().table().container()).css({'font-size': '14px'});",
-    #                 "}")
-    #             ),
-    #             rownames = F) %>%
-    #     formatRound(columns = c("log2FC", "log10p", "log10q"), digits = 4) %>%
-    #     formatRound(columns = c("pValue", "qValue"), digits = 6)
-    # })
+    table_data <- reactive({
+      sort_col_dict = c("log2FoldChange", "log2FoldChange", "pvalue", "padj")
+      names(sort_col_dict) = c("Positive Log2FC", "Negative Log2FC", "P Value", "Adjusted P Value")
+      sort_col = sort_col_dict[input$sort_by]
+      #print(sort_col)
+      cutoff_val = input$table_cutoff
+      n_val = input$n_feature
+      
+      #browser()
+      all_rows = plot_data()[,!colnames(plot_data()) %in% c('SeqRun','baseMean','lfcSE','stat','category','display_name')]
+      #print(colnames(comparison_data))
+      if (input$sort_by == "Negative Log2FC"){
+        table_subset = all_rows[all_rows[,sort_col] <= -cutoff_val,]
+        table_subset = table_subset[order(table_subset[,sort_col]),]
+
+      }else if(input$sort_by == "Positive Log2FC"){
+        table_subset = all_rows[all_rows[,sort_col] >= cutoff_val,]
+        table_subset = table_subset[order(-table_subset[,sort_col]),]
+      }else{
+        table_subset = all_rows[all_rows[,sort_col] <= cutoff_val,]
+        table_subset = table_subset[order(table_subset[,sort_col]),]
+      }
+      if(dim(table_subset)[1]>=n_val){
+        table_subset = table_subset[0:n_val, ]
+      }
+      table_subset
+    })
+    
+    output$top_table <- renderDT({
+      
+      datatable(table_data(),
+                extensions = 'Buttons',  # Add buttons extension
+                options = list(
+                  pageLength = 10,
+                  dom = 'Bfrtip',  # Add 'B' for buttons
+                  buttons = list(  # Configure download buttons
+                    list(
+                      extend = 'csv',
+                      filename = 'differential_analysis_results'
+                    ),
+                    list(
+                      extend = 'excel',
+                      filename = 'differential_analysis_results'
+                    )
+                  ),
+                  autoWidth = TRUE,
+                  searchHighlight = TRUE,
+                  initComplete = JS(
+                    "function(settings, json) {",
+                    "$(this.api().table().container()).css({'font-size': '14px'});",
+                    "}")
+                ),
+                rownames = F) %>%
+        formatRound(columns = c("log2FoldChange", "log10p", "log10q"), digits = 4) %>%
+        formatRound(columns = c("pvalue", "padj"), digits = 6)
+    })
 
     #Create the heatmap output only when get_genes is clicked (or when rendered?)
     observeEvent(input$get_genes, {
@@ -381,9 +384,11 @@ plot_server <- function(id, experiments, file_path, gene_id_to_name){#, molecule
       # Get sample value data
       withProgress(message = 'Retrieving molecule value data...', {
         if(grepl("mock",file_path))
-          logcpm_file <- r"(experiments\mock_comparisons\logCPM_all_samples.txt)"
+          #logcpm_file <- r"(experiments\mock_comparisons\logCPM_all_samples.txt)"
+          logcpm_file <- file.path("experiments","mock_comparisons","logCPM_all_samples.txt")
         else
-          logcpm_file <- r"(experiments\ICP4_comparisons\logCPM_all_samples.txt)"
+          #logcpm_file <- r"(experiments\ICP4_comparisons\logCPM_all_samples.txt)"
+          logcpm_file <- file.path("experiments","ICP4_comparisons","logCPM_all_samples.txt")
         df <- read.table(logcpm_file, header=TRUE) #columns are exp, rows are ensembl gene ids
 
         #rename colnames to match new filenames
@@ -412,7 +417,8 @@ plot_server <- function(id, experiments, file_path, gene_id_to_name){#, molecule
         }
         
         combined_gene_ids <- union(local_selected$gene_ids, typed_gene_ids)
-
+        
+        #browser()
         df_filtered <- df[rownames(df) %in% combined_gene_ids,exp_cat_mask]#local_selected$gene_ids, exp_cat_mask]
         
         if(input$id_type == "gene_name"){ #adjust rownames of heatmap data based on user display preference
@@ -479,12 +485,15 @@ plot_server <- function(id, experiments, file_path, gene_id_to_name){#, molecule
         withProgress(message = 'Generating heatmap...', {
           heatmaply(
             heatmap_data(),
-            dendrogram = "both",
+            Rowv = FALSE, 
+            Colv = TRUE,
+            dendrogram = "column",
+            #dendrogram = "both",
             col_side_colors = col_annotation, #exp type groups
             col_side_palette = type_colors,  #color coding of exp types
             colors = color_palette,
             breaks = breaks,
-            Rowv = T, Colv = T,
+            #Rowv = T, Colv = T,
             grid_color = 'white',
             fontsize_row = 10,
             fontsize_col = 10,

@@ -4,6 +4,8 @@ library(bslib)
 library(httr)
 
 source('home_module.R')
+#source('utils.R')
+#source('plot_module.R')
 source('data_module.R')
 source('methods_module.R')
 source('analysis_module.R')
@@ -89,7 +91,10 @@ ui <- page_fillable(
 #THIS FUNCTION INITIALIZES THE SERVER
 server <- function(input, output, session) {
   # First initialize login module
-  experiments <- get_experiments()#reactiveValues(names=get_experiments())# get_experiments()#login_server("login", session)
+  
+  experiments <- get_experiments()
+  #reactiveValues(names=get_experiments())# get_experiments()#login_server("login", session)
+  
   # Then call the data module server
   data_server("data", session, experiments)
   #prediction_server("prediction")
